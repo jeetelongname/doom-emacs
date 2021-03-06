@@ -163,18 +163,20 @@ This can be passed nil as its second argument to unset handlers for MODES. e.g.
                   (+lookup--run-handlers handler identifier origin)
                 (user-error "No lookup handler selected"))
             (run-hook-wrapped handlers #'+lookup--run-handlers identifier origin))))
-    (when (cond ((null result)
-                 (message "No lookup handler could find %S" identifier)
-                 nil)
-                ((markerp result)
-                 (funcall (or display-fn #'switch-to-buffer)
-                          (marker-buffer result))
-                 (goto-char result)
-                 result)
-                (result))
-      (with-current-buffer (marker-buffer origin)
-        (better-jumper-set-jump (marker-position origin)))
-      result)))
+    (unwind-protect
+        (when (cond ((null result)
+                     (message "No lookup handler could find %S" identifier)
+                     nil)
+                    ((markerp result)
+                     (funcall (or display-fn #'switch-to-buffer)
+                              (marker-buffer result))
+                     (goto-char result)
+                     result)
+                    (result))
+          (with-current-buffer (marker-buffer origin)
+            (better-jumper-set-jump (marker-position origin)))
+          result)
+      (set-marker origin nil))))
 
 
 ;;
@@ -186,12 +188,15 @@ This can be passed nil as its second argument to unset handlers for MODES. e.g.
                         (xref-find-backend)
                         identifier)))
     (when xrefs
-      (funcall (or show-fn #'xref--show-defs)
-               (lambda () xrefs)
-               nil)
-      (if (cdr xrefs)
-          'deferred
-        t))))
+      (let ((marker-ring (ring-copy xref--marker-ring)))
+        (funcall (or show-fn #'xref--show-defs)
+                 (lambda () xrefs)
+                 nil)
+        (if (cdr xrefs)
+            'deferred
+          ;; xref will modify its marker stack when it finds a result to jump to.
+          ;; Use that to determine success.
+          (not (equal xref--marker-ring marker-ring)))))))
 
 (defun +lookup-dictionary-definition-backend-fn (identifier)
   "Look up dictionary definition for IDENTIFIER."

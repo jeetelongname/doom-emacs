@@ -21,10 +21,11 @@ Emacs (as byte-code is generally not forward-compatible)."
   t)
 
 (defcli! (purge p)
-    ((nobuilds-p ["-b" "--no-builds"] "Don't purge unneeded (built) packages")
-     (noelpa-p   ["-p" "--no-elpa"]   "Don't purge ELPA packages")
-     (norepos-p  ["-r" "--no-repos"]  "Don't purge unused straight repos")
-     (regraft-p  ["-g" "--regraft"]   "Regraft git repos (ie. compact them)"))
+    ((nobuilds-p  ["-b" "--no-builds"]  "Don't purge unneeded (built) packages")
+     (noelpa-p    ["-p" "--no-elpa"]    "Don't purge ELPA packages")
+     (norepos-p   ["-r" "--no-repos"]   "Don't purge unused straight repos")
+     (noeln-p     ["-e" "--no-eln"]     "Don't purge old ELN bytecode")
+     (noregraft-p ["-g" "--no-regraft"] "Regraft git repos (ie. compact them)"))
   "Deletes orphaned packages & repos, and compacts them.
 
 Purges all installed ELPA packages (as they are considered temporary). Purges
@@ -39,7 +40,8 @@ list remains lean."
          (not noelpa-p)
          (not norepos-p)
          (not nobuilds-p)
-         regraft-p)
+         (not noregraft-p)
+         (not noeln-p))
     (doom-autoloads-reload))
   t)
 
@@ -187,8 +189,7 @@ list remains lean."
 
 (defun doom--native-compile-jobs ()
   "How many async native compilation jobs are queued or in-progress."
-  (if (and (boundp 'comp-files-queue)
-           (fboundp 'comp-async-runnings))
+  (if (featurep 'comp)
       (+ (length comp-files-queue)
          (comp-async-runnings))
     0))
@@ -220,16 +221,18 @@ list remains lean."
 
 (defun doom--compile-site-packages ()
   "Queue async compilation for all non-doom Elisp files."
-  (when (fboundp 'native-compile-async)
+  (when (featurep 'comp)
     (cl-loop with paths = (cl-loop for path in load-path
                                    unless (string-prefix-p doom-local-dir path)
                                    collect path)
              for file in (doom-files-in paths :match "\\.el\\(?:\\.gz\\)?$")
              if (and (file-exists-p (byte-compile-dest-file file))
-                     (not (doom--find-eln-file (doom--eln-file-name file)))) do
+                     (not (doom--find-eln-file (doom--eln-file-name file)))
+                     (not (cl-some (lambda (re)
+                                     (string-match-p re file))
+                                   comp-deferred-compilation-deny-list))) do
              (doom-log "Compiling %s" file)
-             (native-compile-async file nil 'late))))
-
+             (native-compile-async file))))
 
 (defun doom-cli-packages-install ()
   "Installs missing packages.
@@ -268,7 +271,7 @@ declaration) or dependency thereof that hasn't already been."
            (doom--compile-site-packages)
            (doom--wait-for-compile-jobs)
            (doom--write-missing-eln-errors)
-           (print! (success "Installed %d packages") (length built)))
+           (print! (success "\033[KInstalled %d packages") (length built)))
        (print! (info "No packages need to be installed"))
        nil))))
 
@@ -298,19 +301,31 @@ declaration) or dependency thereof that hasn't already been."
               (doom--with-package-recipes recipes (package local-repo recipe)
                 (unless force-p
                   ;; Ensure packages with outdated files/bytecode are rebuilt
-                  (let ((build-dir (straight--build-dir package))
-                        (repo-dir  (straight--repos-dir local-repo)))
-                    (and (not (plist-get recipe :no-build))
+                  (let* ((build-dir (straight--build-dir package))
+                         (repo-dir  (straight--repos-dir local-repo))
+                         (build (if (plist-member recipe :build)
+                                    (plist-get recipe :build)
+                                  t))
+                         (want-byte-compile
+                          (or (eq build t)
+                              (memq 'compile build)))
+                         (want-native-compile
+                          (or (eq build t)
+                              (memq 'native-compile build))))
+                    (when (eq (car-safe build) :not)
+                      (setq want-byte-compile (not want-byte-compile)
+                            want-native-compile (not want-native-compile)))
+                    (unless (require 'comp nil t)
+                      (setq want-native-compile nil))
+                    (and (or want-byte-compile want-native-compile)
                          (or (file-newer-than-file-p repo-dir build-dir)
                              (file-exists-p (straight--modified-dir (or local-repo package)))
-                             (cl-loop with want-byte   = (straight--byte-compile-package-p recipe)
-                                      with want-native = (if (require 'comp nil t) (straight--native-compile-package-p recipe))
-                                      with outdated = nil
+                             (cl-loop with outdated = nil
                                       for file in (doom-files-in build-dir :match "\\.el$" :full t)
-                                      if (or (if want-byte   (doom--elc-file-outdated-p file))
-                                             (if want-native (doom--eln-file-outdated-p file)))
+                                      if (or (if want-byte-compile   (doom--elc-file-outdated-p file))
+                                             (if want-native-compile (doom--eln-file-outdated-p file)))
                                       do (setq outdated t)
-                                         (when want-native
+                                         (when want-native-compile
                                            (push file doom--eln-output-expected))
                                       finally return outdated))
                          (puthash package t straight--packages-to-rebuild))))
@@ -320,7 +335,7 @@ declaration) or dependency thereof that hasn't already been."
            (doom--wait-for-compile-jobs)
            (doom--write-missing-eln-errors)
            (print! (success "\033[KRebuilt %d package(s)") (length built)))
-       (print! (success "No packages need rebuilding"))
+       (print! (info "No packages need rebuilding"))
        nil))))
 
 
@@ -519,7 +534,23 @@ declaration) or dependency thereof that hasn't already been."
                    (filename path)
                    e)))))))
 
-(defun doom-cli-packages-purge (&optional elpa-p builds-p repos-p regraft-repos-p)
+(defun doom--cli-packages-purge-eln ()
+  (if-let (dirs
+           (cl-delete (expand-file-name comp-native-version-dir doom--eln-output-path)
+                      (directory-files doom--eln-output-path t "^[^.]" t)
+                      :test #'file-equal-p))
+      (progn
+        (print! (start "Purging old native bytecode..."))
+        (print-group!
+         (dolist (dir dirs)
+           (print! (info "Deleting %S") (relpath dir doom--eln-output-path))
+           (delete-directory dir 'recursive))
+         (print! (success "Purged %d directory(ies)" (length dirs))))
+        (length dirs))
+    (print! (info "No ELN directories to purge"))
+    0))
+
+(defun doom-cli-packages-purge (&optional elpa-p builds-p repos-p regraft-repos-p eln-p)
   "Auto-removes orphaned packages and repos.
 
 An orphaned package is a package that isn't a primary package (i.e. doesn't have
@@ -561,4 +592,8 @@ If ELPA-P, include packages installed with package.el (M-x package-install)."
              (/= 0 (doom--cli-packages-purge-repos repos-to-purge)))
            (if (not regraft-repos-p)
                (ignore (print! (info "Skipping regrafting")))
-             (doom--cli-packages-regraft-repos repos-to-regraft)))))))
+             (doom--cli-packages-regraft-repos repos-to-regraft))
+           (when (require 'comp nil t)
+             (if (not eln-p)
+                 (ignore (print! (info "Skipping native bytecode")))
+               (doom--cli-packages-purge-eln))))))))

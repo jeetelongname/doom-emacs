@@ -66,19 +66,20 @@
        :desc "Copy this file"              "C"   #'doom/copy-this-file
        :desc "Find directory"              "d"   #'dired
        :desc "Delete this file"            "D"   #'doom/delete-this-file
-       :desc "Find file in emacs.d"        "e"   #'+default/find-in-emacsd
-       :desc "Browse emacs.d"              "E"   #'+default/browse-emacsd
+       :desc "Find file in emacs.d"        "e"   #'doom/find-file-in-emacsd
+       :desc "Browse emacs.d"              "E"   #'doom/browse-in-emacsd
        :desc "Find file"                   "f"   #'find-file
        :desc "Find file from here"         "F"   #'+default/find-file-under-here
        :desc "Locate file"                 "l"   #'locate
        :desc "Rename/move this file"       "m"   #'doom/move-this-file
-       :desc "Find file in private config" "p"   #'doom/open-private-config
+       :desc "Find file in private config" "p"   #'doom/find-file-in-private-config
        :desc "Browse private config"       "P"   #'doom/open-private-config
        :desc "Recent files"                "r"   #'recentf-open-files
        :desc "Recent project files"        "R"   #'projectile-recentf
        :desc "Sudo this file"              "u"   #'doom/sudo-this-file
        :desc "Sudo find file"              "U"   #'doom/sudo-find-file
-       :desc "Yank filename"               "y"   #'+default/yank-buffer-filename
+       :desc "Yank file path"              "y"   #'+default/yank-buffer-path
+       :desc "Yank file path from project" "Y"   #'+default/yank-buffer-path-relative-to-project
        :desc "Open scratch buffer"         "x"   #'doom/open-scratch-buffer
        :desc "Switch to scratch buffer"    "X"   #'doom/switch-to-scratch-buffer)
 
@@ -173,11 +174,13 @@
          :desc "Insert"                        "i" #'org-roam-insert
          :desc "Insert (skipping org-capture)" "I" #'org-roam-insert-immediate
          :desc "Org Roam"                      "r" #'org-roam
+         :desc "Tag"                           "t" #'org-roam-tag-add
+         :desc "Un-tag"                        "T" #'org-roam-tag-delete
          (:prefix ("d" . "by date")
-          :desc "Arbitrary date" "d" #'org-roam-dailies-date
-          :desc "Today"          "t" #'org-roam-dailies-today
-          :desc "Tomorrow"       "m" #'org-roam-dailies-tomorrow
-          :desc "Yesterday"      "y" #'org-roam-dailies-yesterday))))
+          :desc "Arbitrary date" "d" #'org-roam-dailies-find-date
+          :desc "Today"          "t" #'org-roam-dailies-find-today
+          :desc "Tomorrow"       "m" #'org-roam-dailies-find-tomorrow
+          :desc "Yesterday"      "y" #'org-roam-dailies-find-yesterday))))
 
       ;;; <leader> o --- open
       "o" nil ; we need to unbind it first as Org claims this prefix
@@ -290,7 +293,8 @@
        (:when (featurep! :lang org +pomodoro)
         :desc "Pomodoro timer"             "t" #'org-pomodoro)
        (:when (featurep! :ui zen)
-        :desc "Zen mode"                   "z" #'writeroom-mode))
+        :desc "Zen mode"                   "z" #'+zen/toggle
+        :desc "Zen mode (fullscreen)"      "Z" #'+zen/toggle-fullscreen))
 
       ;;; <leader> v --- versioning
       (:prefix-map ("v" . "versioning")
@@ -305,6 +309,7 @@
         :desc "Jump to previous hunk"      "p"   #'git-gutter:previous-hunk)
        (:when (featurep! :tools magit)
         :desc "Magit dispatch"             "/"   #'magit-dispatch
+        :desc "Magit file dispatch"        "."   #'magit-file-dispatch
         :desc "Forge dispatch"             "'"   #'forge-dispatch
         :desc "Magit status"               "g"   #'magit-status
         :desc "Magit status here"          "G"   #'magit-status-here

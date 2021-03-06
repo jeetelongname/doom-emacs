@@ -74,12 +74,15 @@ symbol and CDR is the value to set it to when `doom-debug-mode' is activated.")
 -q or -Q, for example:
 
   emacs -Q -l init.el -f doom-run-all-startup-hooks-h"
-  (run-hook-wrapped 'after-init-hook #'doom-try-run-hook)
   (setq after-init-time (current-time))
-  (mapc (doom-rpartial #'run-hook-wrapped #'doom-try-run-hook)
-        (list 'delayed-warnings-hook
-              'emacs-startup-hook 'tty-setup-hook
-              'window-setup-hook)))
+  (let ((inhibit-startup-hooks nil))
+    (mapc (lambda (hook)
+            (run-hook-wrapped hook #'doom-try-run-hook))
+          '(after-init-hook
+            delayed-warnings-hook
+            emacs-startup-hook
+            tty-setup-hook
+            window-setup-hook))))
 
 
 ;;
@@ -108,47 +111,58 @@ ready to be pasted in a bug report on github."
   (require 'core-packages)
   (let ((default-directory doom-emacs-dir))
     (letf! ((defun sh (&rest args) (cdr (apply #'doom-call-process args)))
+            (defun cat (file &optional limit)
+              (with-temp-buffer
+                (insert-file-contents file nil 0 limit)
+                (buffer-string)))
             (defun abbrev-path (path)
               (replace-regexp-in-string
-               (regexp-quote (user-login-name)) "$USER"
-               (abbreviate-file-name path))))
+               (regexp-opt (list (user-login-name)) 'words) "$USER"
+               (abbreviate-file-name path)))
+            (defun symlink-path (file)
+              (format "%s%s" (abbrev-path file)
+                      (if (file-symlink-p file)
+                          (concat " -> " (file-truename file))
+                        ""))))
       `((system
-         (type   . ,system-type)
-         (config . ,system-configuration)
+         (info   . ,(cons (doom-system-distro-version) (sh "uname" "-msr")))
          (shell  . ,(abbrev-path shell-file-name))
-         (uname  . ,(if IS-WINDOWS "n/a" (sh "uname" "-msrv")))
          (path   . ,(mapcar #'abbrev-path exec-path)))
         (emacs
-         (dir       . ,(abbrev-path (file-truename doom-emacs-dir)))
-         (version   . ,emacs-version)
-         (build     . ,(format-time-string "%b %d, %Y" emacs-build-time))
+         (dir       . ,(symlink-path doom-emacs-dir))
+         (version   . ,(delq nil (list emacs-version emacs-repository-version (format-time-string "%b %d, %Y" emacs-build-time))))
          (buildopts . ,system-configuration-options)
          (features  . ,system-configuration-features)
-         (traits . ,(delq
-                     nil (list (if (not doom-interactive-p) 'batch)
-                               (if (daemonp) 'daemon)
-                               (if (and (require 'server)
-                                        (server-running-p))
-                                   'server-running)
-                               (if (boundp 'chemacs-profiles-path)
-                                   'chemacs)
-                               (if (file-exists-p doom-env-file)
-                                   'envvar-file)
-                               (if (featurep 'exec-path-from-shell)
-                                   'exec-path-from-shell)
-                               (if (file-symlink-p user-emacs-directory)
-                                   'symlinked-emacsdir)
-                               (if (file-symlink-p doom-private-dir)
-                                   'symlinked-doomdir)))))
+         (traits
+          . ,(delq
+              nil (list (cond ((not doom-interactive-p) 'batch)
+                              ((display-graphic-p) 'gui)
+                              ('tty))
+                        (if (daemonp) 'daemon)
+                        (if (and (require 'server)
+                                 (server-running-p))
+                            'server-running)
+                        (if (boundp 'chemacs-profiles-path)
+                            'chemacs)
+                        (if (file-exists-p doom-env-file)
+                            'envvar-file)
+                        (if (featurep 'exec-path-from-shell)
+                            'exec-path-from-shell)
+                        (if (file-symlink-p user-emacs-directory)
+                            'symlinked-emacsdir)
+                        (if (file-symlink-p doom-private-dir)
+                            'symlinked-doomdir)
+                        (if (doom-files-in `(,@doom-modules-dirs
+                                             ,doom-core-dir
+                                             ,doom-private-dir)
+                                           :type 'files :match "\\.elc$")
+                            'byte-compiled-config)))))
         (doom
-         (dir     . ,(abbrev-path (file-truename doom-private-dir)))
-         (version . ,doom-version)
-         (build   . ,(sh "git" "log" "-1" "--format=%D %h %ci"))
-         (elc-files
-          . ,(length (doom-files-in `(,@doom-modules-dirs
-                                      ,doom-core-dir
-                                      ,doom-private-dir)
-                                    :type 'files :match "\\.elc$")))
+         (dir     . ,(symlink-path doom-private-dir))
+         (version . ,(list doom-version (sh "git" "log" "-1" "--format=%D %h %ci")))
+         ,@(when doom-interactive-p
+             `((font  . ,(bound-and-true-p doom-font))
+               (theme . ,(bound-and-true-p doom-theme))))
          (modules
           ,@(or (cl-loop with cat = nil
                          for key being the hash-keys of doom-modules
@@ -313,10 +327,13 @@ Some items are not supported by the `nsm.el' module."
     (require 'package)
     (with-temp-file file
       (prin1 `(progn
-                (setq noninteractive nil
+                (setq before-init-time (current-time)
+                      after-init-time nil
+                      noninteractive nil
                       user-init-file ,file
                       process-environment ',doom--initial-process-environment
                       exec-path ',doom--initial-exec-path
+                      doom-debug-p t
                       init-file-debug t
                       doom--initial-load-path load-path
                       load-path ',load-path
@@ -329,8 +346,8 @@ Some items are not supported by the `nsm.el' module."
                       comp-async-env-modifier-form ',(bound-and-true-p comp-async-env-modifier-form)
                       comp-deferred-compilation-black-list ',(bound-and-true-p comp-deferred-compilation-black-list))
                 (with-eval-after-load 'undo-tree
-                  ;; undo-tree throws errors because `buffer-undo-tree' isn't
-                  ;; correctly initialized
+                  ;; HACK `undo-tree' throws errors because `buffer-undo-tree'
+                  ;;      isn't correctly initialized
                   (setq-default buffer-undo-tree (make-undo-tree)))
                 (ignore-errors
                   (delete-directory ,(expand-file-name "auto-save-list" doom-emacs-dir) 'parents)))
@@ -356,20 +373,25 @@ Some items are not supported by the `nsm.el' module."
                    (--run--)
                    (maphash (doom-module-loader doom-module-init-file) doom-modules)
                    (maphash (doom-module-loader doom-module-config-file) doom-modules)
-                   (run-hook-wrapped 'doom-init-modules-hook #'doom-try-run-hook)
-                   (doom-run-all-startup-hooks-h)))
+                   (run-hook-wrapped 'doom-init-modules-hook #'doom-try-run-hook)))
                (`vanilla-doom  ; only Doom core
                 `(progn
                    (load-file ,(expand-file-name "core.el" doom-core-dir))
                    (let ((doom-init-modules-p t))
                      (doom-initialize)
                      (doom-initialize-core-modules))
-                   (--run--)
-                   (doom-run-all-startup-hooks-h)))
+                   (--run--)))
                (`vanilla       ; nothing loaded
                 `(progn
                    (package-initialize)
                    (--run--))))
+             (current-buffer))
+      ;; Redo all startup initialization, like running startup hooks and loading
+      ;; init files.
+      (prin1 `(progn
+                (fset 'doom-try-run-hook #',(symbol-function #'doom-try-run-hook))
+                (fset 'doom-run-all-startup-hooks-h #',(symbol-function #'doom-run-all-startup-hooks-h))
+                (doom-run-all-startup-hooks-h))
              (current-buffer)))
     (let ((args (if (eq mode 'doom)
                     (list "-l" file)

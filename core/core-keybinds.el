@@ -28,6 +28,8 @@ and Emacs states, and for non-evil users.")
 
 (cond
  (IS-MAC
+  ;; mac-* variables are used by the special emacs-mac build of Emacs by
+  ;; Yamamoto Mitsuharu, while other builds use ns-*.
   (setq mac-command-modifier      'super
         ns-command-modifier       'super
         mac-option-modifier       'meta
@@ -38,6 +40,21 @@ and Emacs states, and for non-evil users.")
  (IS-WINDOWS
   (setq w32-lwindow-modifier 'super
         w32-rwindow-modifier 'super)))
+
+;; HACK Fixes Emacs' disturbing inability to distinguish C-i from TAB.
+(define-key key-translation-map [?\C-i]
+  (cmd! (if (let ((keys (this-single-command-raw-keys)))
+              (and keys
+                   (not (cl-position 'tab    keys))
+                   (not (cl-position 'kp-tab keys))
+                   (display-graphic-p)
+                   ;; Fall back if no <C-i> keybind can be found, otherwise
+                   ;; we've broken all pre-existing C-i keybinds.
+                   (let ((key
+                          (doom-lookup-key
+                           (vconcat (cl-subseq keys 0 -1) [C-i]))))
+                     (not (or (numberp key) (null key))))))
+            [C-i] [?\C-i])))
 
 
 ;;
@@ -63,20 +80,27 @@ and Emacs states, and for non-evil users.")
 More specifically, when `doom/escape' is pressed. If any hook returns non-nil,
 all hooks after it are ignored.")
 
-(defun doom/escape ()
+(defun doom/escape (&optional interactive)
   "Run `doom-escape-hook'."
-  (interactive)
+  (interactive (list 'interactive))
   (cond ((minibuffer-window-active-p (minibuffer-window))
          ;; quit the minibuffer if open.
+         (when interactive
+           (setq this-command 'abort-recursive-edit))
          (abort-recursive-edit))
         ;; Run all escape hooks. If any returns non-nil, then stop there.
         ((run-hook-with-args-until-success 'doom-escape-hook))
         ;; don't abort macros
         ((or defining-kbd-macro executing-kbd-macro) nil)
         ;; Back to the default
-        ((keyboard-quit))))
+        ((unwind-protect (keyboard-quit)
+           (when interactive
+             (setq this-command 'keyboard-quit))))))
 
 (global-set-key [remap keyboard-quit] #'doom/escape)
+
+(with-eval-after-load 'eldoc
+  (eldoc-add-command 'doom/escape))
 
 
 ;;
@@ -387,21 +411,6 @@ For example, :nvi will map to (list 'normal 'visual 'insert). See
 
 If evil isn't loaded, evil-specific bindings are ignored.
 
-States
-  :n  normal
-  :v  visual
-  :i  insert
-  :e  emacs
-  :o  operator
-  :m  motion
-  :r  replace
-  :g  global  (binds the key without evil `current-global-map')
-
-  These can be combined in any order, e.g. :nvi will apply to normal, visual and
-  insert mode. The state resets after the following key=>def pair. If states are
-  omitted the keybind will be global (no emacs state; this is different from
-  evil's Emacs state and will work in the absence of `evil-mode').
-
 Properties
   :leader [...]                   an alias for (:prefix doom-leader-key ...)
   :localleader [...]              bind to localleader; requires a keymap
@@ -418,7 +427,30 @@ Properties
   :unless [CONDITION] [...]
 
   Any of the above properties may be nested, so that they only apply to a
-  certain group of keybinds."
+  certain group of keybinds.
+
+States
+  :n  normal
+  :v  visual
+  :i  insert
+  :e  emacs
+  :o  operator
+  :m  motion
+  :r  replace
+  :g  global  (binds the key without evil `current-global-map')
+
+  These can be combined in any order, e.g. :nvi will apply to normal, visual and
+  insert mode. The state resets after the following key=>def pair. If states are
+  omitted the keybind will be global (no emacs state; this is different from
+  evil's Emacs state and will work in the absence of `evil-mode').
+
+  These must be placed right before the key string.
+
+  Do
+    (map! :leader :desc \"Description\" :n \"C-c\" #'dosomething)
+  Don't
+    (map! :n :leader :desc \"Description\" \"C-c\" #'dosomething)
+    (map! :leader :n :desc \"Description\" \"C-c\" #'dosomething)"
   (doom--map-process rest))
 
 (provide 'core-keybinds)

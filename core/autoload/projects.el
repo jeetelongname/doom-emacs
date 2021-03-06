@@ -56,6 +56,16 @@ they are absolute."
     (error "Project directory '%s' doesn't exist" project-root))
   (doom-project-browse project-root))
 
+;;;###autoload
+(defun doom/browse-in-emacsd ()
+  "Browse files from `doom-emacs-dir'."
+  (interactive) (doom-project-browse doom-emacs-dir))
+
+;;;###autoload
+(defun doom/find-file-in-emacsd ()
+  "Find a file under `doom-emacs-dir', recursively."
+  (interactive) (doom-project-find-file doom-emacs-dir))
+
 
 ;;
 ;;; Library
@@ -132,3 +142,10 @@ If DIR is not a project, it will be indexed (but not cached)."
            ((doom-module-p :completion 'helm)
             #'helm-find-files)
            (#'find-file)))))
+
+;;;###autoload
+(defun doom-project-ignored-p (project-root)
+  "Return non-nil if remote or temporary file, or a straight package."
+  (or (file-remote-p project-root)
+      (file-in-directory-p project-root temporary-file-directory)
+      (file-in-directory-p project-root doom-local-dir)))

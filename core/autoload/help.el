@@ -351,13 +351,15 @@ module derived from a `featurep!' or `require!' call, c) the module that the
 current file is in, or d) the module associated with the current major mode (see
 `doom--help-major-mode-module-alist')."
   (interactive
-   (mapcar #'intern
-           (split-string
-            (completing-read "Describe module: "
-                             (doom--help-modules-list)
-                             nil t nil nil
-                             (doom--help-current-module-str))
-            " " t)))
+   (nconc
+    (mapcar #'intern
+            (split-string
+             (completing-read "Describe module: "
+                              (doom--help-modules-list)
+                              nil t nil nil
+                              (doom--help-current-module-str))
+             " " t))
+    (list current-prefix-arg)))
   (cl-check-type category symbol)
   (cl-check-type module symbol)
   (cl-destructuring-bind (module-string path)
@@ -377,29 +379,56 @@ current file is in, or d) the module associated with the current major mode (see
            (doom-project-browse (file-name-directory path)))
           ((user-error "Aborted module lookup")))))
 
+;;;###autoload
+(defun doom/help-custom-variable (var)
+  "Look up documentation for a custom variable.
+
+Unlike `helpful-variable', which casts a wider net that includes internal
+variables, this only lists variables that exist to be customized (defined with
+`defcustom')."
+  (interactive
+   (list (helpful--read-symbol
+          "Custom variable: "
+          (helpful--variable-at-point)
+          (lambda (sym)
+            (and (helpful--variable-p sym)
+                 (custom-variable-p sym)
+                 ;; Exclude minor mode state variables, which aren't meant to be
+                 ;; modified directly, but through their associated function.
+                 (not (or (and (string-suffix-p "-mode" (symbol-name sym))
+                               (fboundp sym))
+                          (eq (get sym 'custom-set) 'custom-set-minor-mode))))))))
+  (helpful-variable var))
+
 
 ;;
 ;;; `doom/help-packages'
 
-(defun doom--help-package-insert-button (label path &optional regexp)
-  (declare (indent defun))
-  (insert-text-button
-   (string-trim label)
-   'face 'link
-   'follow-link t
-   'action
-   `(lambda (_)
-      (unless (file-exists-p ,path)
-        (user-error "Module doesn't exist"))
-      (when (window-dedicated-p)
-        (other-window 1))
-      (let ((buffer (find-file ,path)))
-        (when ,(stringp regexp)
-          (with-current-buffer buffer
-            (goto-char (point-min))
-            (if (re-search-forward ,regexp nil t)
-                (recenter)
-              (message "Couldn't find the config block"))))))))
+(defun doom--help-insert-button (label &optional uri line)
+  "Helper function to insert a button at point.
+
+The button will have the text LABEL. If URI is given, the button will open it,
+otherwise the LABEL will be used. If the uri to open is a url it will be opened
+in a browser. If LINE is given (and the uri to open is not a url), then the file
+will open with point on that line."
+  (let ((uri (or uri label)))
+    (insert-text-button
+     label
+     'face 'link
+     'follow-link t
+     'action
+     (if (string-match-p "^https?://" uri)
+         (lambda (_) (browse-url uri))
+       (unless (file-exists-p uri)
+         (error "Path does not exist: %S" uri))
+       (lambda (_)
+         (when (window-dedicated-p)
+           (other-window 1))
+         (find-file uri)
+         (when line
+           (goto-char (point-min))
+           (forward-line (1- line))
+           (recenter)))))))
 
 (defun doom--help-package-configs (package)
   (let ((default-directory doom-emacs-dir))
@@ -413,6 +442,7 @@ current file is in, or d) the module associated with the current major mode (see
            ":(exclude)*.org"))
      "\n" t)))
 
+(defvar doom--help-packages-list nil)
 ;;;###autoload
 (defun doom/help-packages (package)
   "Like `describe-package', but for packages installed by Doom modules.
@@ -427,41 +457,45 @@ If prefix arg is present, refresh the cache."
      (require 'finder-inf nil t)
      (require 'package)
      (require 'straight)
-     (let ((packages (delete-dups
-                      (append (mapcar #'car package-alist)
-                              (mapcar #'car package--builtins)
-                              (mapcar #'intern (hash-table-keys straight--build-cache))
-                              (mapcar #'car (doom-package-list 'all))
-                              nil))))
+     (let ((packages
+            (if (and doom--help-packages-list (null current-prefix-arg))
+                doom--help-packages-list
+              (message "Generating packages list for the first time...")
+              (redisplay)
+              (setq doom--help-packages-list
+                    (delete-dups
+                     (append (mapcar #'car package-alist)
+                             (mapcar #'car package--builtins)
+                             (mapcar #'intern
+                                     (hash-table-keys straight--build-cache))
+                             (mapcar #'car (doom-package-list 'all))
+                             nil))))))
        (unless (memq guess packages)
          (setq guess nil))
        (list
         (intern
-         (completing-read (if guess
-                              (format "Select Doom package to search for (default %s): "
-                                      guess)
-                            "Describe Doom package: ")
+         (completing-read (format "Describe Doom package (%s): "
+                                  (concat (when guess
+                                            (format "default '%s', " guess))
+                                          (format "total %d" (length packages))))
                           packages nil t nil nil
-                          (if guess (symbol-name guess))))))))
+                          (when guess (symbol-name guess))))))))
+  ;; TODO Refactor me.
   (require 'core-packages)
   (doom-initialize-packages)
-  (if (or (package-desc-p package)
-          (and (symbolp package)
-               (or (assq package package-alist)
-                   (assq package package--builtins))))
-      (describe-package package)
-    (help-setup-xref (list #'doom/help-packages package)
-                     (called-interactively-p 'interactive))
-    (with-help-window (help-buffer)))
-  (save-excursion
-    (with-current-buffer (help-buffer)
-      (let ((inhibit-read-only t)
-            (indent (make-string 13 ? )))
-        (goto-char (point-max))
-        (if (re-search-forward "^ *Status: " nil t)
-            (progn
-              (end-of-line)
-              (insert "\n"))
+  (help-setup-xref (list #'doom/help-packages package)
+                   (called-interactively-p 'interactive))
+  (with-help-window (help-buffer)
+    (with-current-buffer standard-output
+      (when (or (package-desc-p package)
+                (and (symbolp package)
+                     (or (assq package package-alist)
+                         (assq package package--builtins))))
+        (describe-package-1 package))
+      (let ((indent (make-string 13 ? )))
+        (goto-char (point-min))
+        (if (re-search-forward "     Status: .*$" nil t)
+            (insert "\n")
           (search-forward "\n\n" nil t))
 
         (package--print-help-section "Package")
@@ -476,21 +510,52 @@ If prefix arg is present, refresh the cache."
                        pin
                      "unpinned")
                    "\n")
-           (package--print-help-section "Build")
-           (insert (let ((default-directory (straight--repos-dir (symbol-name package))))
-                     (cdr
-                      (doom-call-process "git" "log" "-1" "--format=%D %h %ci")))
-                   "\n")
-           (let ((recipe (doom-package-build-recipe package)))
-             (insert (format! "%s\n"
-                              (indent 13
-                                      (string-trim (pp-to-string recipe)))))
 
-             (package--print-help-section "Homepage")
-             (insert (doom--package-url package))))
-          (`elpa (insert "[M]ELPA " (doom--package-url package)))
-          (`builtin (insert "Built-in"))
-          (`other (insert
+           (package--print-help-section "Build")
+           (let ((default-directory (straight--repos-dir (symbol-name package))))
+             (if (file-exists-p default-directory)
+                 (insert (cdr (doom-call-process "git" "log" "-1" "--format=%D %h %ci")))
+               (insert "n/a")))
+           (insert "\n" indent)
+
+           (package--print-help-section "Build location")
+           (let ((build-dir (straight--build-dir (symbol-name package))))
+             (if (file-exists-p build-dir)
+                 (doom--help-insert-button (abbreviate-file-name build-dir))
+               (insert "n/a")))
+           (insert "\n" indent)
+
+           (package--print-help-section "Repo location")
+           (let* ((local-repo (doom-package-recipe-repo package))
+                  (repo-dir (straight--repos-dir local-repo)))
+             (if (file-exists-p repo-dir)
+                 (doom--help-insert-button (abbreviate-file-name repo-dir))
+               (insert "n/a"))
+             (insert "\n"))
+
+           (let ((recipe (doom-package-build-recipe package)))
+             (package--print-help-section "Recipe")
+             (insert
+              (replace-regexp-in-string "\n" (concat "\n" indent)
+                                        (pp-to-string recipe))))
+
+           (package--print-help-section "Homepage")
+           (doom--help-insert-button (doom--package-url package)))
+
+          (`elpa (insert "[M]ELPA ")
+                 (doom--help-insert-button (doom--package-url package))
+                 (package--print-help-section "Location")
+                 (doom--help-insert-button
+                  (abbreviate-file-name
+                   (file-name-directory
+                    (locate-library (symbol-name package))))))
+          (`builtin (insert "Built-in\n")
+                    (package--print-help-section "Location")
+                    (doom--help-insert-button
+                     (abbreviate-file-name
+                      (file-name-directory
+                       (locate-library (symbol-name package))))))
+          (`other (doom--help-insert-button
                    (abbreviate-file-name
                     (or (symbol-file package)
                         (locate-library (symbol-name package))))))
@@ -506,33 +571,36 @@ If prefix arg is present, refresh the cache."
           (package--print-help-section "Modules")
           (insert "Declared by the following Doom modules:\n")
           (dolist (m modules)
-            (insert indent)
-            (doom--help-package-insert-button
-              (format "%s %s" (car m) (or (cdr m) ""))
-              (pcase (car m)
-                (:core doom-core-dir)
-                (:private doom-private-dir)
-                (category (doom-module-path category (cdr m)))))
-            (insert "\n")))
+            (let* ((module-path (pcase (car m)
+                                  (:core doom-core-dir)
+                                  (:private doom-private-dir)
+                                  (category
+                                   (doom-module-locate-path category
+                                                            (cdr m)))))
+                   (readme-path (expand-file-name "README.org" module-path)))
+              (insert indent)
+              (doom--help-insert-button
+               (format "%s %s" (car m) (or (cdr m) ""))
+               module-path)
+              (insert " (")
+              (if (file-exists-p readme-path)
+                  (doom--help-insert-button "readme" readme-path)
+                (insert "no readme"))
+              (insert ")\n"))))
 
         (package--print-help-section "Configs")
-        (insert "This package is configured in the following locations:")
-        (dolist (location (doom--help-package-configs package))
-          (insert "\n" indent)
-          (insert-text-button
-           location
-           'face 'link
-           'follow-link t
-           'action
-           `(lambda (_)
-              (cl-destructuring-bind (file line _match)
-                  ',(split-string location ":")
-                (find-file (expand-file-name file doom-emacs-dir))
-                (goto-char (point-min))
-                (forward-line (1- (string-to-number line)))
-                (recenter)))))
-
-        (insert "\n\n")))))
+        (if-let ((configs (doom--help-package-configs package)))
+            (progn
+              (insert "This package is configured in the following locations:")
+              (dolist (location configs)
+                (insert "\n" indent)
+                (cl-destructuring-bind (file line _match)
+                    (split-string location ":")
+                  (doom--help-insert-button location
+                                            (expand-file-name file doom-emacs-dir)
+                                            (string-to-number line)))))
+          (insert "This package is not configured anywhere"))
+        (goto-char (point-min))))))
 
 (defvar doom--package-cache nil)
 (defun doom--package-list (&optional prompt)
@@ -582,7 +650,9 @@ If prefix arg is present, refresh the cache."
                                      (format "%s.el" package))))
                   (_ (plist-get plist :url))))))
         ((and (require 'package nil t)
-              (or package-archive-contents (doom-refresh-packages-maybe))
+              (or package-archive-contents
+                  (progn (package-refresh-contents)
+                         package-archive-contents))
               (pcase (package-desc-archive (cadr (assq package package-archive-contents)))
                 ("org" "https://orgmode.org")
                 ((or "melpa" "melpa-mirror")

@@ -65,23 +65,33 @@ with anything other than =aspell= yet.
 
 ** Aspell
 + Ubuntu: ~apt-get install aspell aspell-en~
++ macOS: ~brew install aspell~
 + Arch Linux: ~pacman -S aspell aspell-en~
 + NixOS:
   #+BEGIN_SRC nix
   {
     environment.systemPackages = with pkgs; [
-      aspell
-      aspellDicts.en
-      aspellDicts.en-computers
-      aspellDicts.en-science
+      (aspellWithDicts (dicts: with dicts; [ en en-computers en-science ]))
     ];
   }
   #+END_SRC
 
-** TODO Hunspell
+** Hunspell
++ Ubuntu: ~apt-get install hunspell~
++ macOS: ~brew install hunspell~
++ Arch Linux: ~pacman -S hunspell~
++ NixOS:
+  #+BEGIN_SRC nix
+  {
+    environment.systemPackages = with pkgs; [
+      hunspell
+    ];
+  }
+  #+END_SRC
 
 ** Enchant
 + Ubuntu: ~apt-get install enchant-2~
++ macOS: ~brew install enchant~
 + Arch Linux: ~pacman -S enchant~
 + NixOS:
   #+BEGIN_SRC nix

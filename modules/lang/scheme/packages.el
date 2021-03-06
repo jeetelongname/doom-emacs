@@ -1,9 +1,9 @@
 ;; -*- no-byte-compile: t; -*-
 ;;; lang/scheme/packages.el
 
-(package! geiser :pin "2accab72e289ed82707237d2013ba034c88ff6c2")
+(package! geiser :pin "26dd2f4ae0f44879b5273bf87cdd42b8ec4140a1")
 
 (when (featurep! :checkers syntax)
   (package! flycheck-guile
     :recipe (:host github :repo "flatwhatson/flycheck-guile")
-    :pin "2940f1622fa352e7ca95a9e4ad65958c5575da02"))
+    :pin "e46d6e5453dd7471309fae6549445c48e6d8f340"))

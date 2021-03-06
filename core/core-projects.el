@@ -34,7 +34,8 @@ debian, and derivatives). On most it's 'fd'.")
         projectile-globally-ignored-file-suffixes '(".elc" ".pyc" ".o")
         projectile-kill-buffers-filter 'kill-only-files
         projectile-known-projects-file (concat doom-cache-dir "projectile.projects")
-        projectile-ignored-projects '("~/" "/tmp"))
+        projectile-ignored-projects (list "~/" temporary-file-directory)
+        projectile-ignored-project-function #'doom-project-ignored-p)
 
   (global-set-key [remap evil-jump-to-tag] #'projectile-find-tag)
   (global-set-key [remap find-tag]         #'projectile-find-tag)
@@ -81,6 +82,10 @@ debian, and derivatives). On most it's 'fd'.")
 
   (push (abbreviate-file-name doom-local-dir) projectile-globally-ignored-directories)
 
+  ;; Per-project compilation buffers
+  (setq compilation-buffer-name-function #'projectile-compilation-buffer-name
+        compilation-save-buffers-predicate #'projectile-current-project-buffer-p)
+
   ;; Override projectile's dirconfig file '.projectile' with doom's project marker '.project'.
   (defadvice! doom--projectile-dirconfig-file-a ()
     :override #'projectile-dirconfig-file
@@ -113,6 +118,9 @@ c) are not valid projectile projects."
       (when (and (bound-and-true-p projectile-projects-cache)
                  projectile-enable-caching
                  doom-interactive-p)
+        (setq projectile-known-projects
+              (cl-remove-if #'projectile-ignored-project-p
+                            projectile-known-projects))
         (projectile-cleanup-known-projects)
         (cl-loop with blacklist = (mapcar #'file-truename doom-projectile-cache-blacklist)
                  for proot in (hash-table-keys projectile-projects-cache)
@@ -121,7 +129,8 @@ c) are not valid projectile projects."
                             doom-projectile-cache-limit)
                         (member (substring proot 0 -1) blacklist)
                         (and doom-projectile-cache-purge-non-projects
-                             (not (doom-project-p proot))))
+                             (not (doom-project-p proot)))
+                        (projectile-ignored-project-p proot))
                  do (doom-log "Removed %S from projectile cache" proot)
                  and do (remhash proot projectile-projects-cache)
                  and do (remhash proot projectile-projects-cache-time)
@@ -141,10 +150,10 @@ c) are not valid projectile projects."
                     projectile-project-root-files)
             projectile-project-root-files-bottom-up nil)))
 
-  ;; Some utilities have issues with windows-style paths in MSYS, so emit
-  ;; unix-style paths instead.
+  ;; Some MSYS utilities auto expanded the `/' path separator, so we need to prevent it.
   (when IS-WINDOWS
-    (setenv "MSYS_NO_PATHCONV" "1"))
+    (setenv "MSYS_NO_PATHCONV" "1") ; Fix path in Git Bash
+    (setenv "MSYS2_ARG_CONV_EXCL" "--path-separator")) ; Fix path in MSYS2
 
   ;; HACK Don't rely on VCS-specific commands to generate our file lists. That's
   ;;      7 commands to maintain, versus the more generic, reliable and
@@ -175,13 +184,13 @@ And if it's a function, evaluate it."
                          (cl-find-if (doom-rpartial #'executable-find t)
                                      (list "fdfind" "fd"))
                        doom-projectile-fd-binary))
-              (concat (format "%s . -0 -H --color=never --type file --type symlink --follow"
+              (concat (format "%s . -0 -H --color=never --type file --type symlink --follow --exclude .git"
                               bin)
                       (if IS-WINDOWS " --path-separator=/"))))
            ;; Otherwise, resort to ripgrep, which is also faster than find
            ((executable-find "rg" t)
-            (concat "rg -0 --files --follow --color=never --hidden"
-                    (if IS-WINDOWS " --path-separator /")))
+            (concat "rg -0 --files --follow --color=never --hidden -g!.git"
+                    (if IS-WINDOWS " --path-separator=/")))
            ("find . -type f -print0"))))
 
   (defadvice! doom--projectile-default-generic-command-a (orig-fn &rest args)

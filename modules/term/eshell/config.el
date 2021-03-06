@@ -33,6 +33,7 @@ buffer.")
     ("l"  "ls -lh $*")
     ("ll" "ls -lah $*")
     ("gg" "magit-status")
+    ("cdp" "cd-to-project")
     ("clear" "clear-scrollback")) ; more sensible than default
   "An alist of default eshell aliases, meant to emulate useful shell utilities,
 like fasd and bd. Note that you may overwrite these in your
@@ -71,7 +72,9 @@ You should use `set-eshell-alias!' to change this.")
         eshell-prompt-function #'+eshell-default-prompt-fn
         ;; em-glob
         eshell-glob-case-insensitive t
-        eshell-error-if-no-glob t)
+        eshell-error-if-no-glob t
+        ;; Shell config
+        eshell-term-name "xterm-256color")
 
   ;; Consider eshell buffers real
   (add-hook 'eshell-mode-hook #'doom-mark-buffer-as-real-h)
@@ -92,9 +95,7 @@ You should use `set-eshell-alias!' to change this.")
   (add-hook! 'eshell-mode-hook
     (defun +eshell-remove-fringes-h ()
       (set-window-fringes nil 0 0)
-      (set-window-margins nil 1 nil)))
-
-  (add-hook! 'eshell-mode-hook
+      (set-window-margins nil 1 nil))
     (defun +eshell-enable-text-wrapping-h ()
       (visual-line-mode +1)
       (set-display-table-slot standard-display-table 0 ?\ )))
@@ -105,17 +106,20 @@ You should use `set-eshell-alias!' to change this.")
   ;; or configure `+eshell-aliases' via elisp.
   (advice-add #'eshell-write-aliases-list :override #'ignore)
 
+  ;; REVIEW In Emacs 27 and newer, waiting for esh-module is unnecessary.
+  (after! esh-module
+    (add-to-list 'eshell-modules-list 'eshell-tramp))
+
   ;; Visual commands require a proper terminal. Eshell can't handle that, so
   ;; it delegates these commands to a term buffer.
   (after! em-term
     (pushnew! eshell-visual-commands "tmux" "htop" "vim" "nvim" "ncmpcpp"))
 
-  (add-hook! 'eshell-alias-load-hook
-    (defun +eshell-init-aliases-h ()
-      (setq +eshell--default-aliases eshell-command-aliases-list
-            eshell-command-aliases-list
-            (append eshell-command-aliases-list
-                    +eshell-aliases)))))
+  (after! em-alias
+    (setq +eshell--default-aliases eshell-command-aliases-list
+          eshell-command-aliases-list
+          (append eshell-command-aliases-list
+                  +eshell-aliases))))
 
 
 (after! esh-mode
@@ -143,6 +147,8 @@ You should use `set-eshell-alias!' to change this.")
         [remap evil-delete-back-to-indentation] #'eshell-kill-input
         [remap evil-window-split]   #'+eshell/split-below
         [remap evil-window-vsplit]  #'+eshell/split-right
+        ;; To emulate terminal keybinds
+        "C-l"   #'eshell/clear
         (:localleader
          "b" #'eshell-insert-buffer-name
          "e" #'eshell-insert-envvar
@@ -176,6 +182,10 @@ You should use `set-eshell-alias!' to change this.")
   ;;      last command and then calling the output filter.
   (setq eshell-last-command-name "catt")
   (eshell-did-you-mean-output-filter "catt: command not found"))
+
+
+(use-package eshell-syntax-highlighting
+  :hook (eshell-mode . eshell-syntax-highlighting-mode))
 
 
 (use-package! fish-completion

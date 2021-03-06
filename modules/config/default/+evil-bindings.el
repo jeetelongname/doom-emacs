@@ -42,13 +42,26 @@
                            (bound-and-true-p yas-minor-mode)
                            (yas-maybe-expand-abbrev-key-filter 'yas-expand))
                       #'yas-expand
-                      (and (featurep! :completion company +tng)
-                           (+company-has-completion-p))
-                      #'+company/complete)
-      :v [tab] (cmds! (and (bound-and-true-p yas-minor-mode)
+                      (featurep! :completion company +tng)
+                      #'company-indent-or-complete-common)
+      :m [tab] (cmds! (and (bound-and-true-p yas-minor-mode)
+                           (evil-visual-state-p)
                            (or (eq evil-visual-selection 'line)
                                (not (memq (char-after) (list ?\( ?\[ ?\{ ?\} ?\] ?\))))))
-                      #'yas-insert-snippet)
+                      #'yas-insert-snippet
+                      (and (featurep! :editor fold)
+                           (save-excursion (end-of-line) (invisible-p (point))))
+                      #'+fold/toggle
+                      ;; Fixes #4548: without this, this tab keybind overrides
+                      ;; mode-local ones for modes that don't have an evil
+                      ;; keybinding scheme or users who don't have :editor (evil
+                      ;; +everywhere) enabled.
+                      (doom-lookup-key
+                       [tab] (list (current-local-map)
+                                   (evil-get-auxiliary-keymap (current-local-map) evil-state)))
+                      it
+                      (fboundp 'evil-jump-item)
+                      #'evil-jump-item)
 
       (:after help :map help-mode-map
        :n "o"       #'link-hint-open-link)
@@ -107,8 +120,8 @@
 
 ;;; :completion
 (map! (:when (featurep! :completion company)
-       :i "C-@"      (cmds! (not (minibufferp)) #'+company/complete)
-       :i "C-SPC"    (cmds! (not (minibufferp)) #'+company/complete)
+       :i "C-@"    (cmds! (not (minibufferp)) #'company-complete-common)
+       :i "C-SPC"  (cmds! (not (minibufferp)) #'company-complete-common)
        (:after company
         (:map company-active-map
          "C-w"     nil  ; don't interfere with `evil-delete-backward-word'
@@ -132,7 +145,7 @@
          "C-p"     #'company-select-previous-or-abort
          "C-j"     #'company-select-next-or-abort
          "C-k"     #'company-select-previous-or-abort
-         "C-s"     (cmd! (company-search-abort) (company-filter-candidates))
+         "C-s"     #'company-filter-candidates
          [escape]  #'company-search-abort)))
 
       (:when (featurep! :completion ivy)
@@ -379,8 +392,8 @@
        :desc "Copy this file"              "C"   #'doom/copy-this-file
        :desc "Find directory"              "d"   #'+default/dired
        :desc "Delete this file"            "D"   #'doom/delete-this-file
-       :desc "Find file in emacs.d"        "e"   #'+default/find-in-emacsd
-       :desc "Browse emacs.d"              "E"   #'+default/browse-emacsd
+       :desc "Find file in emacs.d"        "e"   #'doom/find-file-in-emacsd
+       :desc "Browse emacs.d"              "E"   #'doom/browse-in-emacsd
        :desc "Find file"                   "f"   #'find-file
        :desc "Find file from here"         "F"   #'+default/find-file-under-here
        :desc "Locate file"                 "l"   #'locate
@@ -392,7 +405,8 @@
        :desc "Save file as..."             "S"   #'write-file
        :desc "Sudo find file"              "u"   #'doom/sudo-find-file
        :desc "Sudo this file"              "U"   #'doom/sudo-this-file
-       :desc "Yank filename"               "y"   #'+default/yank-buffer-filename)
+       :desc "Yank file path"              "y"   #'+default/yank-buffer-path
+       :desc "Yank file path from project" "Y"   #'+default/yank-buffer-path-relative-to-project)
 
       ;;; <leader> g --- git/version control
       (:prefix-map ("g" . "git")
@@ -411,6 +425,7 @@
         :desc "Jump to previous hunk"     "["   #'git-gutter:previous-hunk)
        (:when (featurep! :tools magit)
         :desc "Magit dispatch"            "/"   #'magit-dispatch
+        :desc "Magit file dispatch"       "."   #'magit-file-dispatch
         :desc "Forge dispatch"            "'"   #'forge-dispatch
         :desc "Magit switch branch"       "b"   #'magit-branch-checkout
         :desc "Magit status"              "g"   #'magit-status
@@ -504,10 +519,10 @@
          :desc "Insert (skipping org-capture)" "I" #'org-roam-insert-immediate
          :desc "Org Roam"                      "r" #'org-roam
          (:prefix ("d" . "by date")
-          :desc "Arbitrary date" "d" #'org-roam-dailies-date
-          :desc "Today"          "t" #'org-roam-dailies-today
-          :desc "Tomorrow"       "m" #'org-roam-dailies-tomorrow
-          :desc "Yesterday"      "y" #'org-roam-dailies-yesterday)))
+          :desc "Arbitrary date" "d" #'org-roam-dailies-find-date
+          :desc "Today"          "t" #'org-roam-dailies-find-today
+          :desc "Tomorrow"       "m" #'org-roam-dailies-find-tomorrow
+          :desc "Yesterday"      "y" #'org-roam-dailies-find-yesterday)))
 
        (:when (featurep! :lang org +journal)
         (:prefix ("j" . "journal")
@@ -526,6 +541,7 @@
        :desc "Default browser"    "b"  #'browse-url-of-file
        :desc "Start debugger"     "d"  #'+debugger/start
        :desc "New frame"          "f"  #'make-frame
+       :desc "Select frame"       "F"  #'select-frame-by-name
        :desc "REPL"               "r"  #'+eval/open-repl-other-window
        :desc "REPL (same window)" "R"  #'+eval/open-repl-same-window
        :desc "Dired"              "-"  #'dired-jump
@@ -680,7 +696,8 @@
        (:when (featurep! :editor word-wrap)
         :desc "Soft line wrapping"         "w" #'+word-wrap-mode)
        (:when (featurep! :ui zen)
-        :desc "Zen mode"                   "z" #'writeroom-mode)))
+        :desc "Zen mode"                   "z" #'+zen/toggle
+        :desc "Zen mode (fullscreen)"      "Z" #'+zen/toggle-fullscreen)))
 
 (after! which-key
   (let ((prefix-re (regexp-opt (list doom-leader-key doom-leader-alt-key))))

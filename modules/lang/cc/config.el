@@ -154,7 +154,11 @@ This is ignored by ccls.")
 ;; Major modes
 
 (after! cmake-mode
-  (set-docsets! 'cmake-mode "CMake"))
+  (set-docsets! 'cmake-mode "CMake")
+  (set-popup-rule! "^\\*CMake Help\\*" :size 0.4 :ttl t)
+  (set-lookup-handlers! 'cmake-mode
+    :documentation '+cc-cmake-lookup-documentation-fn))
+
 
 (use-package! company-cmake  ; for `cmake-mode'
   :when (featurep! :completion company)
@@ -229,7 +233,8 @@ If rtags or rdm aren't available, fail silently instead of throwing a breaking e
 (when (featurep! +lsp)
   (add-hook! '(c-mode-local-vars-hook
                c++-mode-local-vars-hook
-               objc-mode-local-vars-hook)
+               objc-mode-local-vars-hook
+               cmake-mode-local-vars-hook)
              #'lsp!)
 
   (map! :after ccls
@@ -289,12 +294,9 @@ If rtags or rdm aren't available, fail silently instead of throwing a breaking e
     ccls-sem-highlight-method (if lsp-enable-semantic-highlighting
                                   ccls-sem-highlight-method))
   (when (or IS-MAC IS-LINUX)
-    (let ((cpu-count-command (cond (IS-MAC '("sysctl" "-n" "hw.ncpu"))
-                                   (IS-LINUX '("nproc"))
-                                   (t (error "unreachable code")))))
-      (setq ccls-initialization-options
-            `(:index (:trackDependency 1
-                      :threads ,(max 1 (/ (string-to-number (cdr (apply #'doom-call-process cpu-count-command))) 2)))))))
+    (setq ccls-initialization-options
+          `(:index (:trackDependency 1
+                    :threads ,(max 1 (/ (doom-system-cpus) 2))))))
   (when IS-MAC
     (setq ccls-initialization-options
           (append ccls-initialization-options

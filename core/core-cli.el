@@ -4,6 +4,7 @@
 (load! "autoload/plist")
 (load! "autoload/files")
 (load! "autoload/output")
+(load! "autoload/system")
 (require 'seq)
 
 ;; Create all our core directories to quell file errors.
@@ -20,7 +21,7 @@
 ;; Don't generate superfluous files when writing temp buffers
 (setq make-backup-files nil)
 
-;; Stop user configuration from interfering with Doom
+;; Stop user configuration from interfering with package management
 (setq enable-dir-local-variables nil)
 
 
@@ -260,8 +261,9 @@ BODY will be run when this dispatcher is called."
            (string-match-p (regexp-quote straight-process-buffer)
                            data))
       (print! (error "There was an unexpected package error"))
-      (print-group!
-       (print! "%s" (string-trim-right (straight--process-get-output)))))
+      (when-let (output (straight--process-get-output))
+        (print-group!
+         (print! "%s" (string-trim-right output)))))
      ((print! (error "There was an unexpected error"))
       (print-group!
        (print! "%s %s" (bold "Message:") (get type 'error-message))
@@ -424,6 +426,18 @@ everywhere we use it (and internally)."
             cause)
           interactive)))
 
+(defadvice! doom--straight-inject-load-path-a (orig-fn &rest args)
+  "Straight builds packages in an isolated Emacs child process, which means
+needed packages may not be accessible when a package is compiled."
+  :override #'straight--build-compile
+  (let* ((package (plist-get recipe :package))
+         (dir (straight--build-dir package)))
+    (call-process (concat invocation-directory invocation-name)
+                  nil straight-byte-compilation-buffer nil
+                  "-Q" "--batch"
+                  "--eval" (prin1-to-string `(setq load-path (cons ,dir ',load-path)))
+                  "--eval" (format "(byte-recompile-directory %S 0 'force)" dir))))
+
 
 ;;
 ;;; Entry point
@@ -481,8 +495,17 @@ Environment variables:
               (run-hooks 'doom-cli-pre-hook)
               (when (apply #'doom-cli-execute command args)
                 (run-hooks 'doom-cli-post-hook)
-                (print! (success "Finished in %.4fs")
-                        (float-time (time-subtract (current-time) start-time))))))))
+                (print! (success "Finished in %s")
+                        (let* ((duration (float-time (time-subtract (current-time) before-init-time)))
+                               (hours   (/ (truncate duration) 60 60))
+                               (minutes (- (/ (truncate duration) 60) (* hours 60)))
+                               (seconds (- duration (* hours 60 60) (* minutes 60))))
+                          (string-join
+                           (delq
+                            nil (list (unless (zerop hours)   (format "%dh" hours))
+                                      (unless (zerop minutes) (format "%dm" minutes))
+                                      (format (if (> duration 60) "%ds" "%.4fs")
+                                              seconds)))))))))))
     ;; TODO Not implemented yet
     (doom-cli-command-not-found-error
      (print! (error "Command 'doom %s' not recognized") (string-join (cdr e) " "))
