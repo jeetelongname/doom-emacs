@@ -1,0 +1,54 @@
+#+TITLE:   ui/treemacs
+#+DATE:    June 9, 2019
+#+SINCE:   2.0.9
+#+STARTUP: inlineimages nofold
+
+* Table of Contents :TOC_3:noexport:
+- [[#description][Description]]
+  - [[#maintainers][Maintainers]]
+  - [[#module-flags][Module Flags]]
+  - [[#plugins][Plugins]]
+- [[#prerequisites][Prerequisites]]
+- [[#features][Features]]
+- [[#configuration][Configuration]]
+- [[#troubleshooting][Troubleshooting]]
+
+* Description
+This module adds the treemacs file explorer
+
++ Integration with Git
++ Integration with evil
++ Workspace awareness
+
+** Maintainers
+This module has no dedicated maintainers.
+
+** Module Flags
+This module provides no flags.
+
+** Plugins
++ [[https://github.com/Alexander-Miller/treemacs/][treemacs]]
+
+* Prerequisites
+If ~+treemacs-git-mode~ is set to ~extended~ or ~deferred~ you will need to have
+python3 installed
+
+* Features
+# An in-depth list of features, how to use them, and their dependencies.
+
+* Configuration
+the variable ~+treemacs-git-mode~ sets the type of git integration for treemacs
+
+There are 3 possible values:
+
+  1) simple, which highlights only files based on their git status, and is
+     slightly faster,
+  2) extended, which highlights both files and directories, but requires
+     python,
+  3) deferred, same as extended, but highlights asynchronously.
+
+the default being simple
+
+This must be set before treemacs has loaded.
+* Troubleshooting
+# Common issues and their solution, or places to look for help.
