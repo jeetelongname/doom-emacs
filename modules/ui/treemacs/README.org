@@ -14,11 +14,16 @@
 - [[#troubleshooting][Troubleshooting]]
 
 * Description
-This module adds the treemacs file explorer
+This module adds the treemacs project sidebar
 
-+ Integration with Git
-+ Integration with evil
-+ Workspace awareness
+#+begin_quote
+It is a little more powerful
+a little cooler than neotree
+#+end_quote
+
++ Integration with Git  (when =:tools magit= is enabled)
++ Integration with Evil (when =:editor evil +everywhere= is enabled)
++ Workspace awareness (when =:ui workspaces= is enabled)
 
 ** Maintainers
 This module has no dedicated maintainers.
@@ -28,27 +33,40 @@ This module provides no flags.
 
 ** Plugins
 + [[https://github.com/Alexander-Miller/treemacs/][treemacs]]
++ [[https://github.com/Alexander-Miller/treemacs/#treemacs-projectile][treemacs-projectile]]
++ =:editor evil +everywhere=
+  + [[https://github.com/Alexander-Miller/treemacs/#treemacs-evil][treemacs-evil]]
++ =:tools magit=
+  + [[https://github.com/Alexander-Miller/treemacs/#treemacs-magit][treemacs-magit]]
++ =:ui workspaces=
+  + [[https://github.com/Alexander-Miller/treemacs/#treemacs-persptreemacs-perspective][treemacs-persp]]
 
 * Prerequisites
 If ~+treemacs-git-mode~ is set to ~extended~ or ~deferred~ you will need to have
-python3 installed
+~python3~ installed
 
 * Features
-# An in-depth list of features, how to use them, and their dependencies.
+The project bar can be opened using =SPC o p=
+
+| Keybind | Description                                                     |
+|---------+-----------------------------------------------------------------|
+| =o s=     | Open a horizontal dired buffer on the currently highlighted node |
+| =o v=     | Open a vertical dired buffer on the currently highlighted node  |
 
 * Configuration
 the variable ~+treemacs-git-mode~ sets the type of git integration for treemacs
 
 There are 3 possible values:
 
-  1) simple, which highlights only files based on their git status, and is
+  1. simple, which highlights only files based on their git status, and is
      slightly faster,
-  2) extended, which highlights both files and directories, but requires
+  2. extended, which highlights both files and directories, but requires
      python,
-  3) deferred, same as extended, but highlights asynchronously.
+  3. deferred, same as extended, but highlights asynchronously.
 
 the default being simple
 
 This must be set before treemacs has loaded.
-* Troubleshooting
+
+* TODO Troubleshooting
 # Common issues and their solution, or places to look for help.
