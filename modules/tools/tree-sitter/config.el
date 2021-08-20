@@ -21,12 +21,13 @@
                                (error-message-string e))
          (signal (car e) (cadr e)))))))
 
-(use-package! evil-textobj-treesitter
-  :after tree-sitter
-  :config
-  (map!
-   :textobj "f" (evil-textobj-treesitter-get-textobj "function.inner") (evil-textobj-treesitter-get-textobj "function.outer") ;; redef
-   :textobj "C" (evil-textobj-treesitter-get-textobj "class.inner") (evil-textobj-treesitter-get-textobj "class.outer")
-   :textobj "c" nil (evil-textobj-treesitter-get-textobj "comment.outer")
-   :textobj "i" (evil-textobj-treesitter-get-textobj "conditional.inner") (evil-textobj-treesitter-get-textobj "conditional.outer")
-   :textobj "l" (evil-textobj-treesitter-get-textobj "loop.inner") (evil-textobj-treesitter-get-textobj "loop.outer")))
+(when (featurep! :editor evil +everywhere)
+  (use-package! evil-textobj-treesitter
+    :after tree-sitter
+    :config
+    (map!
+     :textobj "f" (evil-textobj-treesitter-get-textobj "function.inner") (evil-textobj-treesitter-get-textobj "function.outer") ;; FIXME not bound
+     :textobj "C" (evil-textobj-treesitter-get-textobj "class.inner") (evil-textobj-treesitter-get-textobj "class.outer")
+     :textobj "c" nil (evil-textobj-treesitter-get-textobj "comment.outer") ;; FIXME not bound
+     :textobj "i" (evil-textobj-treesitter-get-textobj "conditional.inner") (evil-textobj-treesitter-get-textobj "conditional.outer") ;; FIXME not bound
+     :textobj "l" (evil-textobj-treesitter-get-textobj "loop.inner") (evil-textobj-treesitter-get-textobj "loop.outer")))) ;; FIXME Erroring
