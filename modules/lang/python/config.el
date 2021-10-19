@@ -332,3 +332,7 @@
                  (featurep! :tools lsp +eglot))
   (after! eglot
     (add-to-list 'eglot-server-programs '(python-mode . ("pyright-langserver" "--stdio")))))
+
+;; Tree sitter
+(eval-when! (featurep! +tree-sitter)
+  (add-hook! 'python-mode-hook #'turn-on-tree-sitter-mode))
