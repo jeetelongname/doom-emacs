@@ -17,6 +17,7 @@
 - [[#features][Features]]
   - [[#lsp-features][=+lsp= features]]
   - [[#meghanada-features][=+meghanada= features]]
+  - [[#tree-sitter][=+tree-sitter=]]
 - [[#configuration][Configuration]]
   - [[#lsp][=+lsp=]]
 
@@ -132,6 +133,10 @@ According to [[https://github.com/mopemope/meghanada-emacs/]] it adds
 + Show symbol's type info with =el-doc=
 + Search references
 + Full-featured text search
+  
+** =+tree-sitter=
+ enable tree sitter syntax highlighting and structural editing.
+ this requires the =:tools tree-sitter= module
 
 * Configuration
 ** =+lsp=

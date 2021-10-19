@@ -33,8 +33,10 @@ e.g. ~cargo~.
 + Snippets
 
 ** Module Flags
-+ ~+lsp~ to add support Language server protocol. Will use the first of
++ =+lsp= to add support Language server protocol. Will use the first of
   =rust-analyzer= or =rls= (in that order).
++ =+tree-sitter= enable tree sitter syntax highlighting and structural editing.
+  this requires the =:tools tree-sitter= module
 
 ** Plugins
 + [[https://github.com/brotzeit/rustic][rustic]]

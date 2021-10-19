@@ -35,6 +35,8 @@ This module adds support for [[https://julialang.org/][the Julia language]] to D
 + =+lsp= and =:tools lsp +eglot=
   + [[https://github.com/non-jedi/eglot-jl][eglot-jl]]
   + [[https://github.com/joaotavora/eglot][eglot]]
++ =+tree-sitter= enable tree sitter syntax highlighting and structural editing.
+  this requires the =:tools tree-sitter= module
 
 * Prerequisites
 This module requires =julia= and an language server if =+lsp= is enabled.

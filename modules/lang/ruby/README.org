@@ -31,6 +31,8 @@ This module add Ruby and optional Ruby on Rails support to Emacs.
 + =+rbenv= Enables rbenv integration.
 + =+chruby= Enables chruby integration.
 + =+rails= Enables rails navigational commands, plus server+console integration.
++ =+tree-sitter= enable tree sitter syntax highlighting and structural editing.
+  this requires the =:tools tree-sitter= module
 
 ** Packages
 + [[https://github.com/endofunky/bundler.el][bundler]]

@@ -51,8 +51,10 @@ This module has no dedicated maintainers.
 
 ** Module Flags
 + =+hack= Add support for the [[https://hacklang.org/][Hack dialect of PHP]] by Facebook.
-+ =+lsp= Enable LSP support through phpactor or intelephense. Requires the ~:tools
-  lsp~ module and the [[https://phpactor.readthedocs.io/en/develop/usage/standalone.html][phpactor server]] to be installed on your system.
++ =+lsp= Enable LSP support through phpactor or intelephense. Requires the
+  ~:tools lsp~ module and the [[https://phpactor.readthedocs.io/en/develop/usage/standalone.html][phpactor server]] to be installed on your system.
++ =+tree-sitter= enable tree sitter syntax highlighting and structural editing.
+  this requires the =:tools tree-sitter= module
 ** Plugins
 + [[https://github.com/tomterl/php-boris][async]]
 + [[https://github.com/tomterl/php-boris][php-boris]]

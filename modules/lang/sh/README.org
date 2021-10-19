@@ -24,6 +24,9 @@ This module adds support for shell scripting languages.
   to be enabled and [[https://github.com/mads-hartmann/bash-language-server][bash-language-server]] to be installed on your system.
 + =+fish= Add syntax highlighting for fish script files.
 + =+powershell= Add syntax highlighting for Powershell script files .ps1 and .psm1
++ =+tree-sitter= enable tree sitter syntax highlighting and structural editing.
+  this requires the =:tools tree-sitter= module
+  
  
 ** Plugins
 + [[https://github.com/Alexander-Miller/company-shell][company-shell]]* (=:completion company=)

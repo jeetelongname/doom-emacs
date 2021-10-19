@@ -18,6 +18,10 @@ This module adds [[https://www.scala-lang.org][scala]] and [[https://www.scala-s
 
 ** Module Flags
 + =+lsp= Enables integration for the metals LSP server.
++ =+tree-sitter= enable tree sitter syntax highlighting and structural editing.
+  this requires the =:tools tree-sitter= module
+  
+  
 
 
 * =+lsp= Integration

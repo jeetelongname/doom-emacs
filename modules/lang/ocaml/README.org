@@ -26,7 +26,8 @@ This module adds [[https://ocaml.org/][OCaml]] support to Doom Emacs, powered by
 + Dune file format ([[http://dune.build/][dune]])
 
 ** Module Flags
-This module provides no flags.
++ =+tree-sitter= enable tree sitter syntax highlighting and structural editing.
+  this requires the =:tools tree-sitter= module
 
 ** Plugins
 + [[https://github.com/ocaml/tuareg][tuareg]]

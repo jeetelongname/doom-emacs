@@ -18,6 +18,8 @@ LSP).
 + =+unity= Enables special support for the [[https://unity.com/][Unity game engine]] (particularly,
   support for HLSL shaders).
 + =+dotnet= Enables Dotnet transient interface with Sharper 
++ =+tree-sitter= Enable Tree sitter syntax highlighting and structural editing.
+  This requires the =:tools tree-sitter= module
 
 ** Plugins
 + [[https://github.com/josteink/csharp-mode][csharp-mode]]

@@ -23,14 +23,16 @@ Adds Python support to Doom Emacs.
 + LSP integration (mspyls, pyls, or pyright)
 
 ** Module Flags
-+ ~+lsp~ Language Server Protocol support
-+ ~+pyright~ Use the pyright LSP server instead of mspyls or pyls (requires
-  ~+lsp~).
-+ ~+pyenv~ Python virtual environment support via [[https://github.com/pyenv/pyenv][pyenv]]
-+ ~+conda~ Python virtual environment support via [[https://conda.io/en/latest/][Conda]]
-+ ~+poetry~ Python packaging, dependency management, and virtual environment
++ =+lsp= Language Server Protocol support
++ =+pyright= Use the pyright LSP server instead of mspyls or pyls (requires
+  =+lsp=).
++ =+pyenv= Python virtual environment support via [[https://github.com/pyenv/pyenv][pyenv]]
++ =+conda= Python virtual environment support via [[https://conda.io/en/latest/][Conda]]
++ =+poetry= Python packaging, dependency management, and virtual environment
   support via [[https://python-poetry.org/][Poetry]]
-+ ~+cython~ Cython files support via [[https://github.com/cython/cython/blob/master/Tools/cython-mode.el][cython-mode]]
++ =+cython= Cython files support via [[https://github.com/cython/cython/blob/master/Tools/cython-mode.el][cython-mode]]
++ =+tree-sitter= enable tree sitter syntax highlighting and structural editing.
+  this requires the =:tools tree-sitter= module
 
 ** Plugins
 + [[https://github.com/pythonic-emacs/anaconda-mode][anaconda-mode]]*
@@ -40,21 +42,21 @@ Adds Python support to Doom Emacs.
 + [[https://github.com/wbolster/emacs-python-pytest][python-pytest]]*
 + [[https://github.com/Wilfred/pip-requirements.el][pip-requirements]]*
 + [[https://github.com/pwalsh/pipenv.el][pipenv]]*
-+ if ~+conda~
++ if =+conda=
   + [[https://github.com/necaris/conda.el][conda]]*
-+ if ~+pyenv~
++ if =+pyenv=
   + [[https://github.com/pythonic-emacs/pyenv-mode][pyenv]]*
-+ if ~+poetry~
++ if =+poetry=
   + [[https://github.com/galaunay/poetry.el][poetry]]*
-+ if ~+lsp~ and ~:tools lsp~
++ if =+lsp= and =:tools lsp=
   + [[https://github.com/emacs-lsp/lsp-mode][lsp]]
-  + if ~+pyright~
+  + if =+pyright=
     + [[https://github.com/emacs-lsp/lsp-pyright][lsp-pyright]]
   + else
     + [[https://github.com/emacs-lsp/lsp-python-ms][lsp-python-ms]]
-+ if ~+cython~
++ if =+cython=
   + [[https://github.com/cython/cython/blob/master/Tools/cython-mode.el][cython-mode]]
-  + if ~:checkers syntax~: [[https://github.com/lbolla/emacs-flycheck-cython/tree/master][flycheck-cython]]
+  + if =:checkers syntax=: [[https://github.com/lbolla/emacs-flycheck-cython/tree/master][flycheck-cython]]
 
 * Prerequisites
 This module has no hard prerequisites, but a few soft ones:

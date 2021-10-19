@@ -22,6 +22,8 @@ This module has no dedicated maintainers.
 ** Module Flags
 + =+lsp= Enable integration with LSP servers, if one is available. Requires the
   =:tools lsp= module to be enabled.
++ =+tree-sitter= enable tree sitter syntax highlighting and structural editing.
+  this requires the =:tools tree-sitter= module
 
 ** Plugins
 + [[https://github.com/joshwnj/json-mode][json-mode]]

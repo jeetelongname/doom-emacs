@@ -33,6 +33,8 @@ This module adds [[https://golang.org][Go]] support, with optional (but recommen
 ** Module Flags
 + =+lsp= Enables integration for the gopls LSP server. It is highly recommended
   you use this, as the non-LSP experience is deprecated (and poor).
++ =+tree-sitter= enable tree sitter syntax highlighting and structural editing.
+  this requires the =:tools tree-sitter= module
 
 ** Plugins
 + [[https://github.com/dominikh/go-mode.el][go-mode]]
